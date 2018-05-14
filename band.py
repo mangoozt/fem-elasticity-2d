@@ -15,7 +15,7 @@ E = 1
 t = 0.1
 
 rect = TrianglulatedRect(w, h, N)
-K = compute_k_mat(rect.elements, rect.nodes)
+K = compute_k_mat(rect.elements, rect.nodes, v, E, t)
 
 elements, nodes = rect.elements, rect.nodes
 fv = np.zeros(len(nodes) * 2)
@@ -57,10 +57,24 @@ ax2.autoscale_view()
 fig1.show()
 # fig1.savefig('rect9.png', dpi=90, bbox_inches='tight')
 
-import matplotlib.tri as mtri
 
+# Output results
+
+# add displacements to nodes coordinates
+
+multiplier = 1e-3
 ux = np.array([u[i * 2] for i in range(0, len(nodes))])
 uy = np.array([u[i * 2 + 1] for i in range(0, len(nodes))])
+x=np.array(x)
+y=np.array(y)
+x=x+ux*multiplier
+y=y+uy*multiplier
+#for i in range(0, len(nodes)):
+#    x[i] = x[i] + ux[i] * multiplier
+#    y[i] = y[i] + uy[i] * multiplier
+
+import matplotlib.tri as mtri
+
 utotal = np.array([(ux[i] ** 2 + uy[i] ** 2) ** 0.5 for i in range(0, len(nodes))])
 ushow = uy
 

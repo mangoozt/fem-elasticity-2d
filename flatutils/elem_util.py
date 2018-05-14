@@ -12,7 +12,7 @@ def comp_bc(ni, nj, nm):
     return nj[1] - nm[1], nm[0] - nj[0]
 
 
-def compute_k_mat(elements, nodes, v):
+def compute_k_mat(elements, nodes, v,E,t):
     D = np.matrix([[1 - v, v, 0], [v, 1 - v, 0], [0, 0, (1 - 2 * v) / 2]]) * (E / ((1 + v) * (1 - 2 * v)))
     K = sp.lil_matrix((len(nodes) * 2, len(nodes) * 2))
     for elem in elements:
