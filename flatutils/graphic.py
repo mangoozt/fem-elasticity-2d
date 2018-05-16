@@ -36,15 +36,21 @@ def show_system(mat, b):
     fig2.show()
 
 
-def show_results(x, y, elements, a, ux=None, uy=None, multiplier=1):
+def apply_displacement(x, y, ux, uy, multiplier):
+    ux = np.array(ux)
+    uy = np.array(uy)
+    _x = np.array(x)
+    _y = np.array(y)
+    _x = _x + ux * multiplier
+    _y = _y + uy * multiplier
+    return _x, _y
+
+
+def show_results(x, y, elements, a, ux=None, uy=None, multiplier=1, mesh=True):
     # add displacements to nodes' coordinates
     if not ((ux is None) & (uy is None)):
-        ux = np.array(ux)
-        uy = np.array(uy)
-        x = np.array(x)
-        y = np.array(y)
-        x = x + ux * multiplier
-        y = y + uy * multiplier
+        _x, _y = x, y
+        x, y = apply_displacement(x, y, ux, uy, multiplier)
 
     a = np.array(a)
 
@@ -58,7 +64,8 @@ def show_results(x, y, elements, a, ux=None, uy=None, multiplier=1):
     cmap = cm.get_cmap(name='jet')
 
     plt.tricontourf(tri_refi, z_test_refi, levels=levels, cmap=cmap, extend='both')
-    plt.triplot(x, y, elements, lw=1, color=(1, 1, 1))
+    if mesh:
+        plt.triplot(x, y, elements, lw=1, color=(1, 1, 1))
     # plt.scatter(x, y, c=a, cmap=cmap, edgecolors='black')
     plt.colorbar()
     plt.show()
