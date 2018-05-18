@@ -14,7 +14,22 @@ class TrianglulatedRect:
                 self.nodes.append((i * w, j * h))
         for i in range(0, nx):
             for j in range(0, ny):
-                self.elements.append((i * (ny + 1) + j, (i + 1) * (ny + 1) + j, i * (ny + 1) + j + 1))
+                """
+ny=2
+j\i  0  1
+
+   2*-5*-8*-
+1   |  |  |
+   1*-4*-7*-
+0   |  |  |
+   0*-3*-6*-
+
+let i=1,j=1
+(i * (ny + 1) + j)          :4*
+(i + 1) * (ny + 1) + j      :7*
+i * (ny + 1) + j + 1        :5*
+(i + 1) * (ny + 1) + j + 1) :8*                
+"""
                 self.elements.append(
                     (i * (ny + 1) + j + 1, (i + 1) * (ny + 1) + j, (i + 1) * (ny + 1) + j + 1))
         self._height = height
