@@ -21,6 +21,9 @@ def show_mesh(x, y, elements):
     fig1 = plt.figure()
     ax2 = fig1.add_subplot(111, aspect='equal')
     ax2.triplot(x, y, elements, lw=1, color=(0, 0, 0))
+    if len(x) <= 30:
+        for i in range(len(x)):
+            ax2.text(x[i], y[i], str(i) + '(' + str(x[i]) + ',' + str(y[i]) + ')')
     ax2.autoscale_view()
     fig1.show()
 
