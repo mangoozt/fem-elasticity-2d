@@ -58,15 +58,15 @@ def show_results(x, y, elements, a, ux=None, uy=None, multiplier=1, mesh=True):
     a = np.array(a)
 
     triang = mtri.Triangulation(x, y, elements)
-    refiner = mtri.UniformTriRefiner(triang)
-    tri_refi, z_test_refi = refiner.refine_field(a, subdiv=4)
+    #refiner = mtri.UniformTriRefiner(triang)
+    #tri_refi, z_test_refi = refiner.refine_field(a, subdiv=4)
 
     plt.figure(figsize=(10, 5))
     plt.gca().set_aspect('equal')
     levels = np.linspace(a.min(), a.max(), num=500)
     cmap = cm.get_cmap(name='jet')
 
-    plt.tricontourf(tri_refi, z_test_refi, levels=levels, cmap=cmap, extend='both')
+    plt.tricontourf(triang, a, levels=levels, cmap=cmap, extend='both')
     if mesh:
         plt.triplot(x, y, elements, lw=1, color=(1, 1, 1))
     # plt.scatter(x, y, c=a, cmap=cmap, edgecolors='black')
