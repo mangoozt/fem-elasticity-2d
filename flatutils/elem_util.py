@@ -22,36 +22,80 @@ def comp_d_mat(E, v):
 
 
 def compute_k_mat(elements, nodes, v, E, t):
-    D = comp_d_mat(E, v)
-    K = sp.lil_matrix((len(nodes) * 2, len(nodes) * 2))
+    d = comp_d_mat(E, v)
+    k = sp.lil_matrix((len(nodes) * 2, len(nodes) * 2))
     for elem in elements:
-        B = []
-        area_rev = 1 / area(*map(lambda i: nodes[i], elem))
+        one_o_2_area = 0.5 / area(*map(lambda i: nodes[i], elem))
+        b = [0, 0, 0]
+        c = [0, 0, 0]
         for i in range(0, 3):
-            b, c = comp_bc(nodes[elem[i]], nodes[elem[(i + 1) % 3]], nodes[elem[(i + 2) % 3]])
-            B.append(np.matrix([[b, 0], [0, c], [c, b]]) * 0.5)
+            b[i], c[i] = comp_bc(nodes[elem[i]], nodes[elem[(i + 1) % 3]], nodes[elem[(i + 2) % 3]])
+            b[i] *= one_o_2_area
+            c[i] *= one_o_2_area
 
         for i in range(0, 3):
-            for j in range(0, 3):
-                Ke = B[i].transpose() * D * B[j] * t * area_rev
-                K[elem[i] * 2, elem[j] * 2] += Ke[0, 0]
-                K[elem[i] * 2, elem[j] * 2 + 1] += Ke[0, 1]
-                K[elem[i] * 2 + 1, elem[j] * 2] += Ke[1, 0]
-                K[elem[i] * 2 + 1, elem[j] * 2 + 1] += Ke[1, 1]
-    return K
+            # transpose(Bi) * D
+            bid = [[b[i] * d[0, 0], b[i] * d[0, 1], c[i] * d[2, 2]],
+                   [c[i] * d[1, 0], c[i] * d[1, 1], b[i] * d[2, 2]]]
+            for j in range(i, 3):
+                # transpose(Bi) * D * Bj
+                Ke = [[bid[0][0] * b[j] + bid[0][2] * c[j], bid[0][1] * c[j] + bid[0][2] * b[j]],
+                      [bid[1][0] * b[j] + bid[1][2] * c[j], bid[1][1] * c[j] + bid[1][2] * b[j]]]
+
+                k[elem[i] * 2, elem[j] * 2] += Ke[0][0]
+                k[elem[i] * 2, elem[j] * 2 + 1] += Ke[0][1]
+                k[elem[i] * 2 + 1, elem[j] * 2] += Ke[1][0]
+                k[elem[i] * 2 + 1, elem[j] * 2 + 1] += Ke[1][1]
+                if i != j:
+                    # transpose(transpose(Bi)*D*Bj) == transpose(Bj)*D*Bi
+                    # as D == transpose(D)
+                    k[elem[j] * 2, elem[i] * 2] += Ke[0][0]
+                    k[elem[j] * 2, elem[i] * 2 + 1] += Ke[1][0]
+                    k[elem[j] * 2 + 1, elem[i] * 2] += Ke[0][1]
+                    k[elem[j] * 2 + 1, elem[i] * 2 + 1] += Ke[1][1]
+    return k.tocsr()
 
 
 def add_bc_force(nodes, boundary_nodes, fv, f, t):
     pk = boundary_nodes[0]
     for nk in boundary_nodes[1:]:
-        l = ((nodes[pk][0] - nodes[nk][0]) ** 2 + (nodes[pk][1] - nodes[nk][1]) ** 2) ** 0.5
+        # integrate Ni over boundary = 0.5*l
+        t_times_n_integrated = t * 0.5 * (
+                (nodes[pk][0] - nodes[nk][0]) ** 2 + (nodes[pk][1] - nodes[nk][1]) ** 2) ** 0.5
         # prev node
-        fv[2 * pk] = fv[2 * pk] + t * f[0] * 0.5 * l
-        fv[2 * pk + 1] = fv[2 * pk + 1] + t * f[1] * 0.5 * l
+        fv[2 * pk] = fv[2 * pk] + f[0] * t_times_n_integrated
+        fv[2 * pk + 1] = fv[2 * pk + 1] + f[1] * t_times_n_integrated
         # this node
-        fv[2 * nk] = fv[2 * nk] + t * f[0] * 0.5 * l
-        fv[2 * nk + 1] = fv[2 * nk + 1] + t * f[1] * 0.5 * l
+        fv[2 * nk] = fv[2 * nk] + f[0] * t_times_n_integrated
+        fv[2 * nk + 1] = fv[2 * nk + 1] + f[1] * t_times_n_integrated
         pk = nk
+
+
+def setcsrrow2id(amat, rowind):
+    indptr = amat.indptr
+    values = amat.data
+    indxs = amat.indices
+
+    # get the range of the data that is changed
+    rowpa = indptr[rowind]
+    rowpb = indptr[rowind + 1]
+
+    # new value and its new rowindex
+    values[rowpa] = 1.0
+    indxs[rowpa] = rowind
+
+    # number of new zero values
+    diffvals = rowpb - rowpa - 1
+
+    # filter the data and indices and adjust the range
+    values = np.r_[values[:rowpa + 1], values[rowpb:]]
+    indxs = np.r_[indxs[:rowpa + 1], indxs[rowpb:]]
+    indptr = np.r_[indptr[:rowind + 1], indptr[rowind + 1:] - diffvals]
+
+    # hard set the new sparse data
+    amat.indptr = indptr
+    amat.data = values
+    amat.indices = indxs
 
 
 def add_bc_displacement(node, boundary_nodes, k_mat, fv, u):
@@ -59,30 +103,28 @@ def add_bc_displacement(node, boundary_nodes, k_mat, fv, u):
         if not (u[i] is None):
             for nk in boundary_nodes:
                 fv[2 * nk + i] = u[i]
-                k_mat[2 * nk + i, :] = 0
-                k_mat[2 * nk + i, 2 * nk + i] = 1
+                setcsrrow2id(k_mat, 2 * nk + i)
 
 
 def restore_stress(elements, nodes, u, v, E):
-    D = comp_d_mat(E, v)
+    d = comp_d_mat(E, v)
     s = [[], [], []]
-
+    one_third = 1 / 3
     for elem in elements:
-        area_rev = 1 / area(*map(lambda i: nodes[i], elem))
-        xc = 1 / 3 * (nodes[elem[0]][0] + nodes[elem[1]][0] + nodes[elem[2]][0])
-        yc = 1 / 3 * (nodes[elem[0]][1] + nodes[elem[1]][1] + nodes[elem[2]][1])
+        one_o_2_area = 0.5 / area(*map(lambda i: nodes[i], elem))
+
         sel = [0, 0, 0]
         for i in range(0, 3):
             b, c = comp_bc(nodes[elem[i]], nodes[elem[(i + 1) % 3]], nodes[elem[(i + 2) % 3]])
-            a = comp_a(nodes[elem[i]], nodes[elem[(i + 1) % 3]], nodes[elem[(i + 2) % 3]])
-            B = np.matrix([[b, 0], [0, c], [c, b]]) * 0.5 * area_rev
-            snod = D * B * np.matrix(u[elem[i] * 2:elem[i] * 2 + 2]).transpose()
-            N = a + b * xc + c * yc
-            sel[0] = sel[0] + snod[0, 0] * N
-            sel[1] = sel[1] + snod[1, 0] * N
-            sel[2] = sel[2] + snod[2, 0] * N
-
-        s[0].append(sel[0])
-        s[1].append(sel[1])
-        s[2].append(sel[2])
+            b *= one_o_2_area
+            c *= one_o_2_area
+            # D*B*u
+            sel[0] = sel[0] + (b * d[0, 0] * u[elem[i] * 2] + c * d[0, 1] * u[elem[i] * 2 + 1])
+            sel[1] = sel[1] + (b * d[1, 0] * u[elem[i] * 2] + c * d[1, 1] * u[elem[i] * 2 + 1])
+            sel[2] = sel[2] + (c * d[2, 2] * u[elem[i] * 2] + b * d[2, 2] * u[elem[i] * 2 + 1])
+        # Ni(xc,yc) values in centriod equals exactly 1/3 Ni(xi,yi)
+        # sum Ni(xc,yc)=1/3 sum Ni(xi,yi)
+        s[0].append(sel[0] * one_third)
+        s[1].append(sel[1] * one_third)
+        s[2].append(sel[2] * one_third)
     return s
