@@ -12,12 +12,17 @@ def comp_bc(ni, nj, nm):
     return nj[1] - nm[1], nm[0] - nj[0]
 
 
-def comp_d_mat(E,v):
+def comp_a(ni, nj, nm):
+    # ai=xj*ym-xm*yj
+    return nj[0] * nm[1] - nm[0] * nj[1]
+
+
+def comp_d_mat(E, v):
     return np.matrix([[1 - v, v, 0], [v, 1 - v, 0], [0, 0, (1 - 2 * v) / 2]]) * (E / ((1 + v) * (1 - 2 * v)))
 
 
 def compute_k_mat(elements, nodes, v, E, t):
-    D = comp_d_mat(E,v)
+    D = comp_d_mat(E, v)
     K = sp.lil_matrix((len(nodes) * 2, len(nodes) * 2))
     for elem in elements:
         B = []
@@ -56,3 +61,28 @@ def add_bc_displacement(node, boundary_nodes, k_mat, fv, u):
                 fv[2 * nk + i] = u[i]
                 k_mat[2 * nk + i, :] = 0
                 k_mat[2 * nk + i, 2 * nk + i] = 1
+
+
+def restore_stress(elements, nodes, u, v, E):
+    D = comp_d_mat(E, v)
+    s = [[], [], []]
+
+    for elem in elements:
+        area_rev = 1 / area(*map(lambda i: nodes[i], elem))
+        xc = 1 / 3 * (nodes[elem[0]][0] + nodes[elem[1]][0] + nodes[elem[2]][0])
+        yc = 1 / 3 * (nodes[elem[0]][1] + nodes[elem[1]][1] + nodes[elem[2]][1])
+        sel = [0, 0, 0]
+        for i in range(0, 3):
+            b, c = comp_bc(nodes[elem[i]], nodes[elem[(i + 1) % 3]], nodes[elem[(i + 2) % 3]])
+            a = comp_a(nodes[elem[i]], nodes[elem[(i + 1) % 3]], nodes[elem[(i + 2) % 3]])
+            B = np.matrix([[b, 0], [0, c], [c, b]]) * 0.5 * area_rev
+            snod = D * B * np.matrix(u[elem[i] * 2:elem[i] * 2 + 2]).transpose()
+            N = a + b * xc + c * yc
+            sel[0] = sel[0] + snod[0, 0] * N
+            sel[1] = sel[1] + snod[1, 0] * N
+            sel[2] = sel[2] + snod[2, 0] * N
+
+        s[0].append(sel[0])
+        s[1].append(sel[1])
+        s[2].append(sel[2])
+    return s
