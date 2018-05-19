@@ -35,4 +35,8 @@ ux = np.array([u[i * 2] for i in range(0, len(nodes))])
 uy = np.array([u[i * 2 + 1] for i in range(0, len(nodes))])
 #utotal = np.array([(ux[i] ** 2 + uy[i] ** 2) ** 0.5 for i in range(0, len(nodes))])
 
-gr.show_results(x, y, elements, a=uy, ux=ux, uy=uy, multiplier=1, mesh=N <= 2000)
+s = restore_stress(elements, nodes, u, v, E)
+von_mises = [(s[0][i] ** 2 - s[0][i] * s[1][i] + s[1][i] ** 2 + 3 * s[2][i] ** 2) ** 0.5 for i in range(len(s[0]))]
+
+# gr.show_results_nodal(x, y, elements, a=uy, ux=ux, uy=uy, multiplier=1, mesh=N <= 2000)
+gr.show_results_elem(x, y, elements, a=von_mises, ux=ux, uy=uy, multiplier=1, mesh=N <= 2000)

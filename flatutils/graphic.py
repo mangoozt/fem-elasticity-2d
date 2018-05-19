@@ -49,7 +49,7 @@ def apply_displacement(x, y, ux, uy, multiplier):
     return _x, _y
 
 
-def show_results(x, y, elements, a, ux=None, uy=None, multiplier=1, mesh=True):
+def show_results_nodal(x, y, elements, a, ux=None, uy=None, multiplier=1, mesh=True):
     # add displacements to nodes' coordinates
     if not ((ux is None) & (uy is None)):
         _x, _y = x, y
@@ -68,7 +68,30 @@ def show_results(x, y, elements, a, ux=None, uy=None, multiplier=1, mesh=True):
 
     plt.tricontourf(triang, a, levels=levels, cmap=cmap, extend='both')
     if mesh:
-        plt.triplot(x, y, elements, lw=1, color=(1, 1, 1))
+        plt.triplot(x, y, elements, lw=1, color=(1, 1, 1,.8))
+    # plt.scatter(x, y, c=a, cmap=cmap, edgecolors='black')
+    plt.colorbar()
+    plt.show()
+
+
+def show_results_elem(x, y, elements, a, ux=None, uy=None, multiplier=1, mesh=True):
+    # add displacements to nodes' coordinates
+    if not ((ux is None) & (uy is None)):
+        _x, _y = x, y
+        x, y = apply_displacement(x, y, ux, uy, multiplier)
+
+    a = np.array(a)
+
+    triang = mtri.Triangulation(x, y, elements)
+
+    plt.figure(figsize=(10, 5))
+    plt.gca().set_aspect('equal')
+    levels = np.linspace(a.min(), a.max(), num=500)
+    cmap = cm.get_cmap(name='jet')
+
+    plt.tripcolor(triang, a, shading='flat', cmap=cmap)
+    if mesh:
+        plt.triplot(x, y, elements, lw=1, color=(1, 1, 1,0.8))
     # plt.scatter(x, y, c=a, cmap=cmap, edgecolors='black')
     plt.colorbar()
     plt.show()
